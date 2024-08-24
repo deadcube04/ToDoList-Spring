@@ -1,6 +1,9 @@
 package cesar.gmca.todolistspring.user;
 
+import at.favre.lib.crypto.bcrypt.BCrypt;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,9 +17,15 @@ public class UserController {
     private UserRepository userRepository;
 
     @PostMapping("/")
-    public UserModel create(@RequestBody UserModel userModel){
+    public ResponseEntity create(@RequestBody UserModel userModel){
 
-        var userCreated = this.userRepository.save(userModel);
-        return userCreated;
+        if ((this.userRepository.findByUsername(userModel.getUsername())) != null){ // error
+
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("user already exists");
+        }
+        String hashPassword = BCrypt.withDefaults().hashToString(12, userModel.getPassword().toCharArray());
+        userModel.setPassword(hashPassword);
+        // sucess
+        return ResponseEntity.status(HttpStatus.CREATED).body(this.userRepository.save(userModel));
     }
 }
