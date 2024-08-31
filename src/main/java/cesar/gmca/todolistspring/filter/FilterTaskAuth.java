@@ -1,18 +1,64 @@
 package cesar.gmca.todolistspring.filter;
 
+import at.favre.lib.crypto.bcrypt.BCrypt;
+import cesar.gmca.todolistspring.user.UserRepository;
 import jakarta.servlet.*;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Base64;
 
 @Component
-public class FilterTaskAuth implements Filter {
-    @Override
-    public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain)
+public class FilterTaskAuth extends OncePerRequestFilter {
 
-            throws IOException, ServletException {
-        // execute action
-        System.out.println("Here, mate");
-        filterChain.doFilter(servletRequest, servletResponse);
+    @Autowired
+    private UserRepository userRepository;
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
+        var serveletPath = request.getServletPath();
+        if (serveletPath.equals("/tasks/"))    {
+
+        var authorization = request.getHeader("Authorization");
+
+
+        var authEncoded = authorization.substring("Basic".length()).trim();
+
+        byte[] authDecode = Base64.getDecoder().decode(authEncoded);
+
+        String[] authStr = new String(authDecode).split(":");
+
+        String username = authStr[0];
+        String password = authStr[1];
+
+
+        System.out.println("Authorization");
+        System.out.println(username);
+        System.out.println(password);
+
+
+        var user = this.userRepository.findByUsername(username);
+        if(user == null){
+            response.sendError(401);
+        }
+        else {
+            var passwordVerify = BCrypt.verifyer().verify(password.toCharArray(), user.getPassword());
+            if (passwordVerify.verified){
+                request.setAttribute("idUser", user.getId());
+                filterChain.doFilter(request, response);
+
+            }
+            response.sendError(401);
+        }
+        }
+        else{
+            filterChain.doFilter(request, response);
+        }
     }
+
 }
